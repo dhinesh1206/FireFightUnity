@@ -39,6 +39,7 @@ public class GameManager : MonoBehaviour {
    
     public List<GameObject> playerActiveinScene;
     bool jumpedInsidejumpArea, jumpedInsideDropArea,jumped;
+	public GameObject coinPrefab;
 
 
     [Space]
@@ -57,7 +58,17 @@ public class GameManager : MonoBehaviour {
     public Vector3 endPosition,newPlayerPositionChangeValue, newPlayerCreationPoint;
     GameObject currentLevel;
     public int playersToSave;
-   
+	public Transform[] coinpickupPositions;
+	Transform currentCoinPickUpPoint;
+
+	public List<AnimationTypes> charecterList;
+	public enum MyEnum
+	{
+		Walk,
+		Cry,
+		Happy,
+		Fly
+	}
     #endregion
 
     private void Awake()
@@ -97,6 +108,7 @@ public class GameManager : MonoBehaviour {
         newPlayerPositionChangeValue = levelInfo.newPlayerChangeValue;
         newPlayerCreationPoint = levelInfo.newplayerCreationPoint;
         playersToSave = levelInfo.PlayersToSave;
+		coinpickupPositions = levelInfo.coinPickUpPosition;
 
         foreach(Animator anim in wheelAnimator)
         {
@@ -140,7 +152,7 @@ public class GameManager : MonoBehaviour {
 
     public void JumptoNet(GameObject incratePlayer)
     {
-        audioSource.clip = dropSound;
+		audioSource.clip = dropSound;
         audioSource.Play();
         incratePlayer.transform.SetParent(netPosition);
        
@@ -158,6 +170,11 @@ public class GameManager : MonoBehaviour {
             MovePlayer(incratePlayer);
         });
     }
+
+	public void CreateNewCoins()
+	{
+		GameObject coinCreated = Instantiate (coinPrefab,coinpickupPositions[Random.Range(0,coinpickupPositions.Length)],false);
+	}
 
     public void GameOver()
     {
@@ -177,7 +194,23 @@ public class GameManager : MonoBehaviour {
         }
     }
 
-   
+	public IEnumerator CreateImageAnimation(SpriteRenderer playerSprite, Texture2D[] danceMoves, float fps)
+	{
+		foreach (Texture2D item in danceMoves) {
+			playerSprite.sprite = CreateSprite (item); 
+			yield return new WaitForSeconds (1/fps);
+		}
+		StartCoroutine (CreateImageAnimation ());
+	}
+
+	Sprite CreateSprite(Texture2D spriteTexture)
+	{
+		Sprite newImageSprite;
+
+		newImageSprite = Sprite.Create(spriteTexture,new Rect(0, 0,spriteTexture.width ,spriteTexture.height),new Vector2(0.5f,0.5f));
+		return newImageSprite;
+	}
+
 
     public void JumptoCrate(GameObject cratePlayerPosition, GameObject playertoJump)
     {
@@ -324,4 +357,19 @@ public class GameManager : MonoBehaviour {
         Destroy(currentLevel);
         CreateLevel(Random.Range(0, levelPrefabs.Length)); 
     }
+}
+
+[System.Serializable]
+public class AnimationTypes
+{	
+	public int charecterIndex;
+	public List<AnimationTexture> charecterAnimations;
+}
+
+[System.Serializable]
+public class AnimationTexture
+{
+	public GameManager.MyEnum AnimationEnum;
+	public float fps = 24;
+	public Texture2D[] spriteTextures;	
 }

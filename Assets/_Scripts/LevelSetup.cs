@@ -15,4 +15,5 @@ public class LevelSetup:MonoBehaviour
     public Vector3 endPositionfromNet,newPlayerChangeValue, newplayerCreationPoint;
     public string AnimationName;
     public int PlayersToSave;
+	public Transform[] coinPickUpPosition;
 }

@@ -10,8 +10,9 @@ public class GameManager : MonoBehaviour {
     #region variables
     public static GameManager instance;
     [Header("UI part")]
-    public Text scoreText;
+    public Text scoreText,coinText;
     public GameObject gameoverScreen;
+    public Image loadingImage;
 
     [Space]
     [Header("Score Manager")]
@@ -22,39 +23,30 @@ public class GameManager : MonoBehaviour {
     [Header("Audio Manager")]
     public AudioSource audioSource;
     public AudioSource bgAudioSource;
-    [HideInInspector]
     public AudioClip dropSound, jumpSound, failSound;
     [HideInInspector]
     public AudioClip[] bgSounds;
 
     [Space]
     [Header("GamePlay")]
-    public GameObject[] playerPrefabs;
     [HideInInspector]
-    public Transform crateCharecterPosition,netPosition;
+    public GameObject[] playerPrefabs; public Transform netPosition;
 
     public GameObject currentPlayer;
     [HideInInspector]
     public bool canJump, canDrop, inCrate;
    
     public List<GameObject> playerActiveinScene;
-    bool jumpedInsidejumpArea, jumpedInsideDropArea,jumped;
 	public GameObject coinPrefab;
 
 
     [Space]
     [Header("Level Manager")]
     public GameObject[] levelPrefabs;
-    int score,highScore ;
+    int score,highScore, coin ;
     public int levelNumber;
+    bool iscoinActive;
     [HideInInspector]
-    public Animator[] wheelAnimator;
-    public string animationName;
-
-    public GameObject playerDetection;
-    public Image bg;
-
-    public float rotationSTopTime;
     public Vector3 endPosition,newPlayerPositionChangeValue, newPlayerCreationPoint;
     GameObject currentLevel;
     public int playersToSave;
@@ -79,6 +71,8 @@ public class GameManager : MonoBehaviour {
     private void Start()
     {
         CreateLevel(levelNumber);
+        coin = 0;
+        coinText.text = coin.ToString();
     }
 
     public void CreateLevel(int levelNumber)
@@ -87,12 +81,7 @@ public class GameManager : MonoBehaviour {
         currentLevel.transform.position = Vector3.zero;
         LevelSetup levelInfo = currentLevel.GetComponent<LevelSetup>();
         playerPrefabs = levelInfo.playerPrefabs;
-        crateCharecterPosition = levelInfo.crateplayerPosition;
         netPosition = levelInfo.netLandinPosition;
-        jumpSound = levelInfo.jumpSound;
-        dropSound = levelInfo.dropSound;
-        failSound = levelInfo.failSound;
-        bgSounds = levelInfo.bgSounds;
         GameLevelBegins();
         trajectoryScript tranjector = transform.GetComponent<trajectoryScript>();
         tranjector.ballClick = levelInfo.hitCollider.gameObject;
@@ -100,20 +89,13 @@ public class GameManager : MonoBehaviour {
         tranjector.minX = levelInfo.minX;
         tranjector.maxX = levelInfo.maxX;
         tranjector.maxY = levelInfo.maxY;
-        wheelAnimator = levelInfo.wheelAnimator;
-        animationName = levelInfo.AnimationName;
-        playerDetection = levelInfo.playerDetection;
         playerActiveinScene = levelInfo.playersActiveInLevel;
         endPosition = levelInfo.endPositionfromNet;
         newPlayerPositionChangeValue = levelInfo.newPlayerChangeValue;
         newPlayerCreationPoint = levelInfo.newplayerCreationPoint;
         playersToSave = levelInfo.PlayersToSave;
 		coinpickupPositions = levelInfo.coinPickUpPosition;
-
-        foreach(Animator anim in wheelAnimator)
-        {
-            anim.Play(animationName);
-        }
+        playersToSave += playerActiveinScene.Count;
     }
 
     public void GameLevelBegins()
@@ -123,23 +105,6 @@ public class GameManager : MonoBehaviour {
         scoreText.text = score.ToString();
         bgAudioSource.clip = bgSounds[Random.Range(0, bgSounds.Length)];
         bgAudioSource.Play();  
-    }
-
-    private void Update()
-    {
-        if(Input.GetMouseButtonDown(0) )
-        {
-           // CreateTestDot(dotCreationPoint.transform.position);
-            //if (canJump)
-            //{
-            //    JumptoCrate();
-            //} 
-            //else if (canDrop && inCrate)
-            //{
-            //    JumptoNet();
-            //}
-            //jump();
-        } 
     }
 
     public void DropPlayer(GameObject other, Collider2D othercollidr)
@@ -152,7 +117,8 @@ public class GameManager : MonoBehaviour {
 
     public void JumptoNet(GameObject incratePlayer)
     {
-		audioSource.clip = dropSound;
+        CreateNewCoins();
+        audioSource.clip = dropSound;
         audioSource.Play();
         incratePlayer.transform.SetParent(netPosition);
        
@@ -165,16 +131,36 @@ public class GameManager : MonoBehaviour {
         });
         incratePlayer.transform.DOLocalMoveX(newPosition.x, 0.5f, false).SetEase(Ease.Linear).OnComplete(() =>
         {
-            incratePlayer.GetComponent<Animator>().Play("Walk");
-            incratePlayer.transform.GetChild(0).GetComponent<Animator>().Play("Walk");
+           // incratePlayer.GetComponent<Animator>().Play("Walk");
+          //  incratePlayer.transform.GetChild(0).GetComponent<Animator>().Play("Walk");
             MovePlayer(incratePlayer);
         });
     }
 
 	public void CreateNewCoins()
 	{
-		GameObject coinCreated = Instantiate (coinPrefab,coinpickupPositions[Random.Range(0,coinpickupPositions.Length)],false);
+        if (!iscoinActive)
+        {
+            Transform newCoinPoint = coinpickupPositions[Random.Range(0, coinpickupPositions.Length)];
+            if (newCoinPoint != currentCoinPickUpPoint)
+            {
+                currentCoinPickUpPoint = newCoinPoint;
+                GameObject coinCreated = Instantiate(coinPrefab, coinpickupPositions[Random.Range(0, coinpickupPositions.Length)], false);
+                iscoinActive = true;
+            }
+            else
+            {
+                CreateNewCoins();
+            }
+        }
 	}
+
+    public void CoinPickedUp()
+    {
+        iscoinActive = false;
+        coin += 1;
+        coinText.text = coin.ToString();
+    }
 
     public void GameOver()
     {
@@ -186,13 +172,6 @@ public class GameManager : MonoBehaviour {
         SceneManager.LoadScene(0);
     }
 
-    public void ResumeWheelSpeed()
-    {
-        foreach (Animator crateAnimation in wheelAnimator)
-        {
-            crateAnimation.speed = 1;
-        }
-    }
 
 	public IEnumerator CreateImageAnimation(SpriteRenderer playerSprite, Texture2D[] danceMoves, float fps)
 	{
@@ -200,13 +179,12 @@ public class GameManager : MonoBehaviour {
 			playerSprite.sprite = CreateSprite (item); 
 			yield return new WaitForSeconds (1/fps);
 		}
-		StartCoroutine (CreateImageAnimation ());
+		StartCoroutine (CreateImageAnimation (playerSprite,danceMoves,fps));
 	}
 
 	Sprite CreateSprite(Texture2D spriteTexture)
 	{
 		Sprite newImageSprite;
-
 		newImageSprite = Sprite.Create(spriteTexture,new Rect(0, 0,spriteTexture.width ,spriteTexture.height),new Vector2(0.5f,0.5f));
 		return newImageSprite;
 	}
@@ -214,16 +192,9 @@ public class GameManager : MonoBehaviour {
 
     public void JumptoCrate(GameObject cratePlayerPosition, GameObject playertoJump)
     {
-       // playerActiveinScene.Remove(playertoJump);
         GameObject plyer = playertoJump;
-        //plyer.gameObject.tag = "Untagged";
-        //currentPlayer = null;
         trajectoryScript.instance.StopJump(plyer);
-       // audioSource.clip = jumpSound;
-       // audioSource.Play();
         plyer.transform.SetParent(cratePlayerPosition.transform.GetChild(0).transform);
-        // Vector2 newPosition = Vector3.zero;
-       // WaitForSecondsRealtime(0.5f);
         Vector2 newPosition = Vector3.zero;
         plyer.transform.localPosition = new Vector3(0, plyer.transform.localPosition.y , 0);
         if(plyer.transform.localPosition.y > 0.2f)
@@ -237,25 +208,14 @@ public class GameManager : MonoBehaviour {
                 plyer.transform.DOLocalMove(Vector3.zero, 0.1f, false);
             });
         });
-        // plyer.transform.DOLocalMoveX(newPosition.x, 0.3f, false).SetEase(Ease.Linear);
-
         print(plyer.transform.localPosition);
         plyer.GetComponent<Animator>().Play("Happy");
         plyer.transform.GetChild(0).GetComponent<Animator>().Play("Happy");
         inCrate = true;
     }
 
-
-
-
-    public void CLearCurrentPlayer()
-    {
-       // currentPlayer = null;
-    }
-
     public void CreatePlayer()
     {
-        
         Invoke("CreateNewPlayer", 1f);
     }
 
@@ -278,15 +238,6 @@ public class GameManager : MonoBehaviour {
         });
     }
 
-    public void CheckRotationSpeed()
-    {
-        foreach (Animator crateAnimation in wheelAnimator)
-        {
-            crateAnimation.speed = 1;
-        }
-        Invoke("ResumeWheelSpeed", rotationSTopTime);
-    }
-
     IEnumerator ChangePlayerPosition()
     {
         foreach (GameObject player in playerActiveinScene)
@@ -298,19 +249,6 @@ public class GameManager : MonoBehaviour {
                 
         }
         yield return new WaitForSeconds(0.0f);
-       // GameManager.instance.playerDetection.SetActive(true);
-    }
-
-    public void AllPlayers()
-    {
-        //playerActiveinScene.Clear();
-        //GameObject[] players = GameObject.FindGameObjectsWithTag("Player");
-
-        //foreach(GameObject player in players) 
-        //{
-        //    if (!playerActiveinScene.Contains(player) && player.tag == "Player")
-        //        playerActiveinScene.Add(player);
-        //}
     }
 
     IEnumerator DelayAnimation(string animationname, Animator animatortoAnimate, float delayTime)
@@ -346,9 +284,18 @@ public class GameManager : MonoBehaviour {
     {
         score += scoreMultiplier;
         scoreText.text = score.ToString();
+      
         if (score == 5)
         {
-            Invoke("CreateNewLvelAfterScore", 3f);
+            loadingImage.gameObject.SetActive(true);
+            loadingImage.transform.DOScale(30, 0.5f).SetEase(Ease.Linear).OnComplete(() =>
+            {
+                CreateNewLvelAfterScore();
+                loadingImage.transform.DOScale(0.1f, 0.5f).SetEase(Ease.Linear).OnComplete(() =>
+                {
+                    loadingImage.gameObject.SetActive(false);
+                });
+            });
         }
     }
 
